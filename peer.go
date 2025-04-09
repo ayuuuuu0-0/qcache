@@ -1,8 +1,12 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
+	"fmt"
+	"io"
 	"net"
+
+	"github.com/tidwall/resp"
 )
 
 type Peer struct {
@@ -18,17 +22,20 @@ func NewPeer(conn net.Conn, msgCh chan []byte) *Peer{
 }
 
 func (p *Peer) readLoop() error{
-	reader := bufio.NewReader(p.conn)
+	rd := resp.NewReader(p.conn)
 	//buf := make([]byte, 1024)
 	for{
-		line, err := reader.ReadBytes('\n')
+		value,_, err := rd.ReadValue()
 		if err != nil {
+			if err == io.EOF{
+				return fmt.Errorf("Connection Closed")
+			}
 			return err
 		}
-		// msgBuf := make([]byte, n)
-		// copy(msgBuf, buf[:n])
-		// p.msgCh <- msgBuf
-
-		p.msgCh <- line
+		var buf bytes.Buffer
+		if err:= resp.NewWriter(&buf).WriteValue(value); err!=nil{
+			return err
+		}
+		p.msgCh <- buf.Bytes()
 	}
 }

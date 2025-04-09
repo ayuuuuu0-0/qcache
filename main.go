@@ -1,10 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"log/slog"
 	"net"
+	"qcache/client"
+	"time"
 )
 
 const defaultListenAddr = ":5001";
@@ -55,8 +57,9 @@ func (s* Server) handleRawMessage(rawMsg []byte) error{
 	if err != nil {
 		return err
 	}
-	switch cmd.(type){
+	switch v := cmd.(type){
 	case SetCommand:
+		slog.Info("somebody want to set a key into the hash table", "key", v.key, "val", v.val)
 	}
 	return nil
 }
@@ -69,7 +72,6 @@ func(s *Server) loop(){
 			if err := s.handleRawMessage(rawMsg); err != nil {
 				slog.Error("raw message error", "err", err)
 			}
-		fmt.Println(rawMsg)
 		case <- s.quitCh:
 			return 
 		case peer := <- s.addPeerCh:
@@ -101,6 +103,17 @@ func (s *Server) handleConn (conn net.Conn){
 }
 
 func main() {
+	go func(){
 	server := NewServer(Config{})
 	log.Fatal(server.Start())
+}()
+time.Sleep(time.Second)
+for i := 0; i<10; i++{
+c := client.New("localhost:5001");
+if err := c.Set(context.TODO(), "foo", "bar"); err != nil{
+	log.Fatal(err);
+};
 }
+time.Sleep(time.Second)
+}
+
