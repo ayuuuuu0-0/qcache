@@ -14,6 +14,10 @@ type Peer struct {
 	msgCh chan []byte
 }
 
+func (p* Peer) Send(msg []byte) (int, error) {
+	return p.conn.Write(msg)
+}
+
 func NewPeer(conn net.Conn, msgCh chan []byte) *Peer{
 	return &Peer{
 		conn: conn,

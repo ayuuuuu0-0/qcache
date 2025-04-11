@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"net"
@@ -15,13 +16,19 @@ type Config struct {
 	ListenAddr string
 }
 
+type Message struct {
+	data []byte
+	peer *Peer
+}
+
 type Server struct {
 	Config
 	peers       map[*Peer] bool
 	ln          net.Listener
 	addPeerCh   chan *Peer
 	quitCh      chan struct{}
-	msgCh       chan []byte
+	msgCh       chan Message
+	kv          *KV
 }
 
 func NewServer(cfg Config) *Server{
@@ -34,6 +41,7 @@ func NewServer(cfg Config) *Server{
 		addPeerCh:       make(chan *Peer ), 
 		quitCh:          make(chan struct{}),
 		msgCh:           make(chan []byte),
+		kv:              NewKV(),
 	}
 }
 
@@ -52,15 +60,22 @@ func (s *Server) Start() error{
 	
 }
 
-func (s* Server) handleRawMessage(rawMsg []byte) error{
-	cmd, err := parseCommand(string(rawMsg))
+
+func (s* Server) handleMessage(Msg Message) error{
+	cmd, err := parseCommand(string(Msg.data))
 	if err != nil {
 		return err
 	}
 	switch v := cmd.(type){
 	case SetCommand:
-		slog.Info("somebody want to set a key into the hash table", "key", v.key, "val", v.val)
-	}
+		return s.kv.Set(v.key, v.val)
+	case GetCommand:
+		val, ok := s.kv.Get(v.key)
+		if !ok {
+			return fmt.Errorf("key not found")
+		}
+		msg.peer.conn.
+		}
 	return nil
 }
 
@@ -103,17 +118,27 @@ func (s *Server) handleConn (conn net.Conn){
 }
 
 func main() {
-	go func(){
 	server := NewServer(Config{})
+	go func(){
 	log.Fatal(server.Start())
 }()
 time.Sleep(time.Second)
 for i := 0; i<10; i++{
 c := client.New("localhost:5001");
-if err := c.Set(context.TODO(), "foo", "bar"); err != nil{
+if err := c.Set(context.TODO(), 
+            fmt.Sprint("foo_%id", i), 
+               fmt.Sprintf("bar_%id", i)); err != nil{
+				log.Fatal(err)
+			   }
+ val, err := c.Get(context.TODO(), 
+            fmt.Sprint("foo_%id", i), 
+               );
+ if err != nil{
 	log.Fatal(err);
 };
+fmt.Println(val)
 }
-time.Sleep(time.Second)
+fmt.Println(server.kv.data)
+time.Sleep(time.Second * 2)
 }
 
