@@ -40,7 +40,7 @@ func NewServer(cfg Config) *Server{
 		peers:           make(map[*Peer]bool),
 		addPeerCh:       make(chan *Peer ), 
 		quitCh:          make(chan struct{}),
-		msgCh:           make(chan []byte),
+		msgCh:           make(chan Message),
 		kv:              NewKV(),
 	}
 }
@@ -61,8 +61,8 @@ func (s *Server) Start() error{
 }
 
 
-func (s* Server) handleMessage(Msg Message) error{
-	cmd, err := parseCommand(string(Msg.data))
+func (s* Server) handleMessage(msg Message) error{
+	cmd, err := parseCommand(string(msg.data))
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,10 @@ func (s* Server) handleMessage(Msg Message) error{
 		if !ok {
 			return fmt.Errorf("key not found")
 		}
-		msg.peer.conn.
+		_, err := msg.peer.Send(val)
+		if err != nil {
+			slog.Error("peer send error", "err",err)
+		}
 		}
 	return nil
 }
@@ -83,8 +86,8 @@ func (s* Server) handleMessage(Msg Message) error{
 func(s *Server) loop(){
 	for{
 		select{
-		case rawMsg := <- s.msgCh:
-			if err := s.handleRawMessage(rawMsg); err != nil {
+		case msg := <- s.msgCh:
+			if err := s.handleMessage(msg); err != nil {
 				slog.Error("raw message error", "err", err)
 			}
 		case <- s.quitCh:
@@ -123,13 +126,21 @@ func main() {
 	log.Fatal(server.Start())
 }()
 time.Sleep(time.Second)
+
+c, err := client.New("localhost:5001");
+
+if err != nil{
+	log.Fatal(err)
+}
+
+
 for i := 0; i<10; i++{
-c := client.New("localhost:5001");
 if err := c.Set(context.TODO(), 
             fmt.Sprint("foo_%id", i), 
-               fmt.Sprintf("bar_%id", i)); err != nil{
+               fmt.Sprintf("bar_%d", i)); err != nil{
 				log.Fatal(err)
 			   }
+			   time.Sleep(time.Second)
  val, err := c.Get(context.TODO(), 
             fmt.Sprint("foo_%id", i), 
                );

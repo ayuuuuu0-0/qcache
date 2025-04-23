@@ -1,24 +1,24 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
-	"io"
+	// "bytes"
+	// "fmt"
+	// "io"
 	"net"
 
-	"github.com/tidwall/resp"
+	//"github.com/tidwall/resp"
 )
 
 type Peer struct {
 	conn net.Conn
-	msgCh chan []byte
+	msgCh chan Message
 }
 
 func (p* Peer) Send(msg []byte) (int, error) {
 	return p.conn.Write(msg)
 }
 
-func NewPeer(conn net.Conn, msgCh chan []byte) *Peer{
+func NewPeer(conn net.Conn, msgCh chan Message) *Peer{
 	return &Peer{
 		conn: conn,
 		msgCh: msgCh,
@@ -26,20 +26,31 @@ func NewPeer(conn net.Conn, msgCh chan []byte) *Peer{
 }
 
 func (p *Peer) readLoop() error{
-	rd := resp.NewReader(p.conn)
-	//buf := make([]byte, 1024)
+	//rd := resp.NewReader(p.conn)
+	buf := make([]byte, 1024)
 	for{
-		value,_, err := rd.ReadValue()
-		if err != nil {
-			if err == io.EOF{
-				return fmt.Errorf("Connection Closed")
-			}
+		n, err := p.conn.Read(buf)
+		if err != nil{
 			return err
 		}
-		var buf bytes.Buffer
-		if err:= resp.NewWriter(&buf).WriteValue(value); err!=nil{
-			return err
+		msgBuf := make([]byte, n)
+		copy(msgBuf, buf[:n])
+		p.msgCh <- Message{
+			data: msgBuf,
+			peer: p,
 		}
-		p.msgCh <- buf.Bytes()
 	}
 }
+	// for{
+	// 	value,_, err := rd.ReadValue()
+	// 	if err != nil {
+	// 		if err == io.EOF{
+	// 			return fmt.Errorf("Connection Closed")
+	// 		}
+	// 		return err
+	// 	}
+	// 	var buf bytes.Buffer
+	// 	if err:= resp.NewWriter(&buf).WriteValue(value); err!=nil{
+	// 		return err
+	// 	}
+		
