@@ -1,13 +1,13 @@
 package main
 
 import (
-	"context"
+	//"context"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
 	"net"
-	"qcache/client"
-	"time"
+	//"qcache/client"
 )
 
 const defaultListenAddr = ":5001";
@@ -17,7 +17,7 @@ type Config struct {
 }
 
 type Message struct {
-	data []byte
+	cmd Command
 	peer *Peer
 }
 
@@ -54,7 +54,7 @@ func (s *Server) Start() error{
 
 	go s.loop()
 
-	slog.Info("server running", "listenAddr", s.ListenAddr)
+	slog.Info("qcache server running", "listenAddr", s.ListenAddr)
 
 	return s.acceptLoop()
 	
@@ -62,11 +62,8 @@ func (s *Server) Start() error{
 
 
 func (s* Server) handleMessage(msg Message) error{
-	cmd, err := parseCommand(string(msg.data))
-	if err != nil {
-		return err
-	}
-	switch v := cmd.(type){
+	
+	switch v := msg.cmd.(type){
 	case SetCommand:
 		return s.kv.Set(v.key, v.val)
 	case GetCommand:
@@ -121,35 +118,10 @@ func (s *Server) handleConn (conn net.Conn){
 }
 
 func main() {
-	server := NewServer(Config{})
-	go func(){
+	listenAddr := flag.String("listenAddr", defaultListenAddr, "Listen address of the qcache server")
+	flag.Parse()
+	server := NewServer(Config{
+		ListenAddr: *listenAddr,
+	})
 	log.Fatal(server.Start())
-}()
-time.Sleep(time.Second)
-
-c, err := client.New("localhost:5001");
-
-if err != nil{
-	log.Fatal(err)
-}
-
-
-for i := 0; i<10; i++{
-if err := c.Set(context.TODO(), 
-            fmt.Sprint("foo_%id", i), 
-               fmt.Sprintf("bar_%d", i)); err != nil{
-				log.Fatal(err)
-			   }
-			   time.Sleep(time.Second)
- val, err := c.Get(context.TODO(), 
-            fmt.Sprint("foo_%id", i), 
-               );
- if err != nil{
-	log.Fatal(err);
-};
-fmt.Println(val)
-}
-fmt.Println(server.kv.data)
-time.Sleep(time.Second * 2)
-}
-
+	} 

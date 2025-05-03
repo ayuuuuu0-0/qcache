@@ -2,11 +2,12 @@ package main
 
 import (
 	// "bytes"
-	// "fmt"
-	// "io"
+	"fmt"
+	"io"
+	"log"
 	"net"
 
-	//"github.com/tidwall/resp"
+	"github.com/tidwall/resp"
 )
 
 type Peer struct {
@@ -26,31 +27,51 @@ func NewPeer(conn net.Conn, msgCh chan Message) *Peer{
 }
 
 func (p *Peer) readLoop() error{
-	//rd := resp.NewReader(p.conn)
-	buf := make([]byte, 1024)
-	for{
-		n, err := p.conn.Read(buf)
-		if err != nil{
-			return err
+	rd := resp.NewReader(p.conn)
+	for {
+v, _, err := rd.ReadValue()
+if err == io.EOF {
+break
+}
+if err != nil {
+log.Fatal(err)
+}
+
+if v.Type() == resp.Array {
+for _, value := range v.Array() {
+	switch value.String() {
+	case CommandGET:
+		
+		if len (v.Array()) != 2 {
+			return fmt.Errorf("invalid number of variables for Get command")
 		}
-		msgBuf := make([]byte, n)
-		copy(msgBuf, buf[:n])
-		p.msgCh <- Message{
-			data: msgBuf,
-			peer: p,
+		cmd := GetCommand{
+			key: v.Array()[1].Bytes(),
+				}
+
+				p.msgCh <- Message{
+					cmd: cmd,
+					peer: p,
+				}
+
+
+			case CommandSET:
+		    if len (v.Array()) != 3 {
+			return fmt.Errorf("invalid number of variables for set command")
 		}
+		cmd := SetCommand{
+			key: v.Array()[1].Bytes(),
+			val: v.Array()[2].Bytes(),
+				}
+				
+				p.msgCh <- Message{
+					cmd: cmd,
+					peer: p,
+				}
 	}
 }
-	// for{
-	// 	value,_, err := rd.ReadValue()
-	// 	if err != nil {
-	// 		if err == io.EOF{
-	// 			return fmt.Errorf("Connection Closed")
-	// 		}
-	// 		return err
-	// 	}
-	// 	var buf bytes.Buffer
-	// 	if err:= resp.NewWriter(&buf).WriteValue(value); err!=nil{
-	// 		return err
-	// 	}
-		
+}
+}
+return nil
+}
+
